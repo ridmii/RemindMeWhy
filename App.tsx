@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -38,16 +38,78 @@ export default function App() {
   };
 
   const processImage = async (uri: string) => {
-    console.log("Selected image URI:", uri);
+    setIsProcessing(true);
+
+    try {
+      // 1. Prepare the form data
+      const formData = new FormData();
+
+      // React Native needs this specific format for file uploads
+      const filename = uri.split('/').pop() || 'screenshot.jpg';
+      formData.append('file', {
+        uri: uri,
+        name: filename,
+        type: 'image/jpeg',
+      } as any);
+
+      // Pass the current time so the AI can calculate "tomorrow at 2 PM"
+      formData.append('current_time', new Date().toISOString());
+
+      // 2. Send to your FastAPI backend
+      // REPLACE 192.168.X.X WITH YOUR COMPUTER'S LOCAL IP ADDRESS!
+      const response = await fetch('http://192.168.X.X:8000/extract', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const aiData = await response.json();
+      console.log("AI Result:", aiData);
+
+      // 3. Create the card from the AI result
+      if (aiData.is_actionable) {
+        const newCard: MemoryCard = {
+          id: Math.random().toString(),
+          imageUri: uri,
+          category: aiData.category || 'other',
+          title: aiData.title || 'New Memory',
+          summary: aiData.summary || 'No summary available.',
+          actionableTime: aiData.actionable_time || 'N/A',
+          expiryTime: aiData.expiry_time || 'N/A',
+        };
+
+        setMemories((prev) => [newCard, ...prev]);
+      } else {
+        Alert.alert("Not actionable", "This screenshot doesn't contain useful data.");
+      }
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Failed to process the image. Is your backend running?");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Memory</Text>
       <Text style={styles.subtitle}>Your temporary screenshot layer</Text>
+
+      {isProcessing && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#50FA7B" />
+          <Text style={styles.loadingText}>AI is reading your screenshot...</Text>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.button} onPress={pickImage} disabled={isProcessing}>
         <Text style={styles.buttonText}>Select Screenshot</Text>
       </TouchableOpacity>
+
+      <Text style={styles.counterText}>Memories extracted: {memories.length}</Text>
       <StatusBar style="auto" />
     </View>
   );
@@ -76,9 +138,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
+    marginBottom: 16,
   },
   buttonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: '#333',
+  },
+  counterText: {
+    fontSize: 14,
+    color: '#888',
   },
 });
