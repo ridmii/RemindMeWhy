@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import {
+  StyleSheet, Text, View, TouchableOpacity, Image,
+  FlatList, ActivityIndicator, SafeAreaView, Alert
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { MaterialIcons } from '@expo/vector-icons';
 
 // This is the structure the AI will eventually return
-export type MemoryCard = {
+type MemoryCard = {
   id: string;
   imageUri: string;
   category: string;
@@ -93,68 +96,189 @@ export default function App() {
     }
   };
 
+  const renderCard = ({ item }: { item: MemoryCard }) => (
+    <View style={styles.card}>
+      <Image source={{ uri: item.imageUri }} style={styles.cardImage} />
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.categoryTag}>{item.category.toUpperCase()}</Text>
+          <Text style={styles.expiryText}>Expires: {item.expiryTime}</Text>
+        </View>
+        <Text style={styles.cardTitle}>{item.title}</Text>
+        <Text style={styles.cardSummary}>{item.summary}</Text>
+        <View style={styles.actionRow}>
+          <MaterialIcons name="notifications-active" size={16} color="#FFB86C" />
+          <Text style={styles.actionText}>Remind me: {item.actionableTime}</Text>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Memory</Text>
-      <Text style={styles.subtitle}>Your temporary screenshot layer</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Memory</Text>
+        <Text style={styles.headerSubtitle}>Your temporary screenshot layer</Text>
+      </View>
 
       {isProcessing && (
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#50FA7B" />
           <Text style={styles.loadingText}>AI is reading your screenshot...</Text>
         </View>
       )}
 
-      <TouchableOpacity style={styles.button} onPress={pickImage} disabled={isProcessing}>
-        <Text style={styles.buttonText}>Select Screenshot</Text>
-      </TouchableOpacity>
+      <FlatList
+        data={memories}
+        keyExtractor={(item) => item.id}
+        renderItem={renderCard}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <MaterialIcons name="document-scanner" size={64} color="#444" />
+            <Text style={styles.emptyText}>No temporary memories yet.</Text>
+            <Text style={styles.emptySubText}>Tap the + button to scan a screenshot.</Text>
+          </View>
+        }
+      />
 
-      <Text style={styles.counterText}>Memories extracted: {memories.length}</Text>
-      <StatusBar style="auto" />
-    </View>
+      <TouchableOpacity style={styles.fab} onPress={pickImage} disabled={isProcessing}>
+        <MaterialIcons name="add" size={32} color="#000" />
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#121212', // Dark theme
+  },
+  header: {
     padding: 20,
+    paddingTop: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
   },
-  title: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 8,
+    color: '#FFF',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 24,
-  },
-  button: {
-    backgroundColor: '#50FA7B',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: '#000',
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  loadingText: {
-    marginLeft: 8,
-    color: '#333',
-  },
-  counterText: {
+  headerSubtitle: {
     fontSize: 14,
     color: '#888',
+    marginTop: 4,
   },
+  listContainer: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  card: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    elevation: 3,
+  },
+  cardImage: {
+    width: 100,
+    height: '100%',
+    backgroundColor: '#333',
+  },
+  cardContent: {
+    flex: 1,
+    padding: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryTag: {
+    color: '#50FA7B',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  expiryText: {
+    color: '#666',
+    fontSize: 10,
+  },
+  cardTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  cardSummary: {
+    color: '#AAA',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    padding: 8,
+    borderRadius: 8,
+  },
+  actionText: {
+    color: '#FFB86C',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 32,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#50FA7B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#50FA7B',
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  emptyState: {
+    alignItems: 'center',
+    marginTop: 100,
+  },
+  emptyText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptySubText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 100,
+    alignSelf: 'center',
+    backgroundColor: '#1E1E1E',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
+  },
+  loadingText: {
+    color: '#FFF',
+    marginLeft: 12,
+    fontWeight: '500',
+  }
 });
