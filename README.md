@@ -1,4 +1,4 @@
-# RemindMeWhy (ScreenshotMemory)
+# RemindMeWhy 
 
 > **Your temporary screenshot layer.** Turn fleeting screenshots into actionable reminders and organized temporary memory cards using Google Gemini AI.
 
