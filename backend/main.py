@@ -1,18 +1,18 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from datetime import datetime
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# New SDK initialization
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 app = FastAPI()
 
-# Allow React Native to talk to this server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# The prompt we designed earlier
 SYSTEM_PROMPT = """
 You are an AI assistant for a "Temporary Memory" mobile app. 
 Your job is to analyze user screenshots and extract the core actionable data.
@@ -43,33 +42,26 @@ Rules:
 2. If the screenshot is a meme or useless, set "is_actionable": false, "category": "ignore".
 """
 
-# Use Gemini 1.5 Flash for speed and cost
-model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
-
 @app.post("/extract")
 async def extract_info(file: UploadFile = File(...), current_time: str = Form(...)):
     try:
-        # Read the image bytes
         image_data = await file.read()
         
-        # Prepare the image for Gemini
-        image_parts = [
-            {
-                "mime_type": file.content_type,
-                "data": image_data
-            }
-        ]
+        # Send to Gemini using the new SDK format
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=[
+                f"The current date and time is {current_time}. Analyze this screenshot.",
+                types.Part.from_bytes(data=image_data, mime_type=file.content_type)
+            ],
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json"
+            )
+        )
         
-        # Send to Gemini
-        prompt = f"The current date and time is {current_time}. Analyze this screenshot."
-        response = model.generate_content([prompt, image_parts[0]])
-        
-        # Parse the JSON response (Gemini sometimes adds markdown backticks)
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:-3]
-        
-        return json.loads(text)
+        # The new SDK with response_mime_type="application/json" guarantees valid JSON
+        return json.loads(response.text)
         
     except Exception as e:
         print(f"Error: {e}")
