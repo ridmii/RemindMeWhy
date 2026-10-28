@@ -7,7 +7,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSPhotoLibraryUsageDescription": "We need access to scan your screenshots for important information.",
+        "NSPhotoLibraryAddUsageDescription": "We need access to save your screenshots."
+      }
     },
     "android": {
       "adaptiveIcon": {
